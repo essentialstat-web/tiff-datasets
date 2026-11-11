@@ -104,6 +104,8 @@ tbody tr:hover td{background:var(--soft)}
 .note{font-size:.8rem;color:var(--ink2);max-width:90ch}
 .note p{margin:0 0 6px}
 .toast{font-size:.8rem;color:var(--accent)}
+.warn{font-size:.8rem;margin:0;padding:8px 10px;border-radius:4px;border-left:3px solid var(--focus);background:var(--soft);color:var(--ink)}
+.parts{margin-top:12px;padding-top:10px;border-top:1px dashed var(--line)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
@@ -137,6 +139,7 @@ tbody tr:hover td{background:var(--soft)}
       <div class="row sel"><label for="gSupp">Input yang naik</label><select id="gSupp"></select></div>
       <div class="row pct"><label for="gPct">Kenaikan belanja</label><span class="unit"><input type="number" id="gPct" step="0.1" value="0"></span></div>
       <p class="hint" id="gInfo"></p>
+      <p class="warn" id="gWarn" hidden></p>
     </div>
 
     <div class="sect">
@@ -176,6 +179,7 @@ tbody tr:hover td{background:var(--soft)}
           <div class="split" id="fSplit" aria-hidden="true"></div>
           <div class="legend"><span><i style="background:var(--focus)"></i>Dampak langsung <b id="fDir"></b></span><span><i style="background:var(--accent)"></i>Dampak tidak langsung <b id="fInd"></b></span></div>
           <p class="hint" style="margin-top:8px" id="fSrc"></p>
+          <dl class="kv parts" id="fParts"></dl>
         </div>
       </div>
     </section>
@@ -284,18 +288,24 @@ document.querySelector('#tbl tbody').addEventListener('click',e=>{const tr=e.tar
 // compute
 let R = null;
 function run(){
-  const dF = Array(N).fill(0);
+  const P = [Array(N).fill(0),Array(N).fill(0),Array(N).fill(0)];
   for(let i=0;i<N;i++){
-    if(S.fdScope===-1 || S.fdScope===i) for(let k=0;k<7;k++) dF[i]+=S.fd[k]/100*D.FD[i][k];
-    if(S.gPct && (S.gSupp===-1 || S.gSupp===i)) dF[i]+=S.gPct/100*D.Z[i][S.gBuyer];
-    dF[i]+=S.direct[i];
+    if(S.fdScope===-1 || S.fdScope===i) for(let k=0;k<7;k++) P[0][i]+=S.fd[k]/100*D.FD[i][k];
+    if(S.gPct && (S.gSupp===-1 || S.gSupp===i)) P[1][i]+=S.gPct/100*D.Z[i][S.gBuyer];
+    P[2][i]+=S.direct[i];
   }
-  const dX = L.map(r=>r.reduce((s,v,j)=>s+v*dF[j],0));
-  R = { dF, dX, rows: D.codes.map((c,i)=>({i, code:c, name:D.names[i], dF:dF[i], X0:D.X[i], dX:dX[i], X1:D.X[i]+dX[i], pct:D.X[i]?dX[i]/D.X[i]:0, mul:MUL[i]})) };
+  const dF = P[0].map((v,i)=>v+P[1][i]+P[2][i]);
+  const mm = v => L.map(r=>r.reduce((s,x,j)=>s+x*v[j],0));
+  const PX = P.map(mm);
+  const dX = PX[0].map((v,i)=>v+PX[1][i]+PX[2][i]);
+  R = { dF, dX, PX, rows: D.codes.map((c,i)=>({i, code:c, name:D.names[i], dF:dF[i], X0:D.X[i], dX:dX[i], X1:D.X[i]+dX[i], pct:D.X[i]?dX[i]/D.X[i]:0, mul:MUL[i]})) };
   // highlight active inputs
   document.querySelectorAll('.controls input[type=number]').forEach(el=>el.classList.toggle('on', num(el)!==0));
   const b=S.gBuyer, tot=D.Z.reduce((s,r)=>s+r[b],0);
   $('gInfo').textContent = `${D.codes[b]} membeli input antara domestik Rp ${money(S.gSupp===-1?tot:D.Z[S.gSupp][b])} juta${S.gSupp===-1?'':' dari '+D.codes[S.gSupp]}.`;
+  const autoPct = D.X[b] ? (PX[0][b]+PX[2][b])/D.X[b] : 0;
+  const w=$('gWarn'); w.hidden = !(S.gPct && Math.abs(autoPct)>1e-7);
+  if(!w.hidden) w.textContent = `Perhatian: bagian 1 dan 3 sudah menaikkan output ${D.codes[b]} ${pct(autoPct)}, sehingga pembelian semua inputnya otomatis ikut naik ${pct(autoPct)}. Isian di sini ditambahkan di atas efek itu. Isi hanya jika ada perubahan pola pembelian input (misalnya substitusi impor); jika tidak, kosongkan agar tidak terhitung dua kali.`;
   render();
 }
 
@@ -310,6 +320,8 @@ function render(){
   $('fPct').textContent = D.X[k]? pct(r.pct) : 'output 0';
   $('fX0').textContent='Rp '+money(r.X0)+' jt'; $('fdX').textContent='Rp '+money(r.dX)+' jt'; $('fX1').textContent='Rp '+money(r.X1)+' jt';
   $('fInj').textContent='Rp '+money(r.dF)+' jt'; $('fMul').textContent=f4.format(r.mul);
+  const PN=['Dari bagian 1 · komponen permintaan akhir','Dari bagian 2 · belanja input antara','Dari bagian 3 · tambahan langsung'];
+  $('fParts').innerHTML = R.PX.map((px,n)=>`<dt>${PN[n]}</dt><dd>Rp ${money(px[k])} jt · ${D.X[k]?pct(px[k]/D.X[k]):'–'}</dd>`).join('');
   const dir = L[k][k]*dF[k], ind = r.dX-dir;
   $('fDir').textContent='Rp '+money(dir)+' jt'; $('fInd').textContent='Rp '+money(ind)+' jt';
   const a=Math.max(0,dir), b=Math.max(0,ind), s=a+b||1;
