@@ -106,18 +106,42 @@ tbody tr:hover td{background:var(--soft)}
 .toast{font-size:.8rem;color:var(--accent)}
 .warn{font-size:.8rem;margin:0;padding:8px 10px;border-radius:4px;border-left:3px solid var(--focus);background:var(--soft);color:var(--ink)}
 .parts{margin-top:12px;padding-top:10px;border-top:1px dashed var(--line)}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:-8px 0 20px;overflow-x:auto}
+.tabs button{border:0;background:none;color:var(--ink2);padding:8px 14px;font-size:.92rem;font-weight:500;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.tabs button[aria-selected=true]{color:var(--accent);border-bottom-color:var(--accent)}
+.tabs button:hover{color:var(--ink)}
+.plist{display:flex;flex-direction:column;gap:6px}
+.pitem{display:grid;grid-template-columns:minmax(0,1fr) 78px 28px;gap:8px;align-items:center;font-size:.82rem;background:var(--soft);border-radius:4px;padding:6px 8px;padding-right:6px}
+.pitem .unit{margin-right:14px}
+.pitem .x{border:0;background:none;color:var(--muted);font-size:1.1rem;line-height:1;padding:2px 6px;border-radius:4px}
+.pitem .x:hover{color:var(--neg);background:var(--panel)}
+#pchart{width:100%;display:block}
+#pchart text{font-family:var(--f-body);font-size:11px;fill:var(--ink2)}
+#pchart .val{font-family:var(--f-data);fill:var(--ink)}
+#pchart .grid line{stroke:var(--line)}
+#pchart .bar{fill:var(--accent)}
+#pchart .bar.neg{fill:var(--neg)}
+#pchart .bar.hl{fill:var(--focus)}
+#pchart .hit{fill:transparent}
+#pchart g:hover .bar{opacity:.8}
+tr.shock td{color:var(--muted);font-style:italic}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
 <div class="wrap">
 <header>
   <div>
-    <h1>Simulator Dampak Output — Tabel IO Sulawesi Tenggara 2016</h1>
-    <p class="sub">Atur perubahan permintaan akhir atau belanja input antara, lalu lihat kenaikan output 52 industri. Dasar: transaksi domestik atas dasar harga produsen, juta rupiah (BPS).</p>
+    <h1>Simulator Tabel IO Sulawesi Tenggara 2016</h1>
+    <p class="sub">Dampak perubahan permintaan akhir terhadap output, dan dampak kenaikan harga suatu sektor terhadap harga sektor lain dan inflasi. Dasar: transaksi domestik atas dasar harga produsen, juta rupiah (BPS).</p>
   </div>
-  <div class="formula">ΔX = (I − A)<sup>−1</sup> · ΔF</div>
+  <div class="formula" id="formula">ΔX = (I − A)<sup>−1</sup> · ΔF</div>
 </header>
+<nav class="tabs" role="tablist" aria-label="Jenis simulasi">
+  <button type="button" role="tab" id="tab-output" data-view="output" aria-selected="true">Dampak output</button>
+  <button type="button" role="tab" id="tab-harga" data-view="harga" aria-selected="false">Inflasi dorongan biaya</button>
+</nav>
 
+<div id="viewOutput">
 <div class="grid">
   <aside class="panel controls" aria-label="Skenario">
     <div class="sect">
@@ -208,6 +232,83 @@ tbody tr:hover td{background:var(--soft)}
       <p><b>Asumsi.</b> Model terbuka Leontief: koefisien tetap, tanpa kendala kapasitas, harga tetap, dan hanya mencakup produksi domestik provinsi (kebocoran impor tidak menimbulkan output). Dampak induksi pendapatan rumah tangga tidak dihitung (pengganda tipe I).</p>
     </section>
   </main>
+</div>
+</div>
+
+<div id="viewHarga" hidden>
+<div class="grid">
+  <aside class="panel controls pcontrols" aria-label="Skenario harga">
+    <div class="sect">
+      <h2>Skenario kenaikan harga</h2>
+      <p class="hint">Pilih sektor yang harganya naik karena kebijakan atau gangguan pasokan. Harga sektor lain menyesuaikan lewat struktur biayanya.</p>
+      <div class="presets" id="ppresets"></div>
+    </div>
+    <div class="sect">
+      <h3>Sektor yang harganya naik</h3>
+      <div class="row sel"><label for="pSec">Sektor</label><select id="pSec"></select></div>
+      <div class="row pct"><label for="pVal">Kenaikan harga</label><span class="unit"><input type="number" id="pVal" step="0.5" value="10"></span></div>
+      <button class="btn primary" id="pAdd" type="button">Tambahkan ke skenario</button>
+      <div id="pList" class="plist"></div>
+    </div>
+    <div class="sect">
+      <h3>Asumsi</h3>
+      <div class="row pct"><label for="pTheta">Penerusan kenaikan biaya ke harga jual</label><span class="unit"><input type="number" id="pTheta" step="5" min="0" max="100" value="100"></span></div>
+      <p class="hint">100% berarti seluruh kenaikan biaya diteruskan ke harga (batas atas). Isi lebih rendah jika produsen menyerap sebagian lewat margin.</p>
+    </div>
+    <div class="sect"><div class="tools"><button class="btn" id="pReset" type="button">Kosongkan skenario</button></div></div>
+  </aside>
+
+  <main class="results">
+    <section class="tiles" aria-label="Ringkasan harga">
+      <div class="tile"><span class="k">Perkiraan sumbangan inflasi</span><span class="v" id="pInfl">–</span><span class="u">poin persen, bobot konsumsi RT</span></div>
+      <div class="tile"><span class="k">Langsung</span><span class="v" id="pDir">–</span><span class="u">poin persen, dari sektor yang naik</span></div>
+      <div class="tile"><span class="k">Tidak langsung</span><span class="v" id="pInd">–</span><span class="u">poin persen, dari sektor lain</span></div>
+      <div class="tile"><span class="k">Harga produsen rata-rata</span><span class="v" id="pAvg">–</span><span class="u">tertimbang output</span></div>
+    </section>
+
+    <section class="panel">
+      <div class="head"><h2>Sektor yang diamati</h2><select id="pFocus" style="max-width:420px" aria-label="Sektor yang diamati"></select></div>
+      <div class="focus">
+        <div>
+          <div class="big" id="pfPct">–</div>
+          <p class="hint" style="margin-top:6px" id="pfNote">kenaikan harga produsen sektor ini</p>
+        </div>
+        <div>
+          <dl class="kv">
+            <dt>Porsi input dari sektor yang harganya naik</dt><dd id="pfShare"></dd>
+            <dt>Kenaikan harga langsung</dt><dd id="pfDir"></dd>
+            <dt>Kenaikan harga tidak langsung</dt><dd id="pfInd"></dd>
+            <dt>Bobot dalam konsumsi rumah tangga</dt><dd id="pfW"></dd>
+            <dt>Sumbangan ke inflasi</dt><dd id="pfC"></dd>
+          </dl>
+          <p class="hint" style="margin-top:8px" id="pfSrc"></p>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="head"><h2 id="pChartTitle">Kenaikan harga terbesar di sektor lain</h2><span class="hint">Sektor yang dikejutkan tidak ditampilkan</span></div>
+      <svg id="pchart" role="img" aria-label="Grafik kenaikan harga per sektor"></svg>
+    </section>
+
+    <section class="panel">
+      <div class="head">
+        <h2>Semua sektor</h2>
+        <div class="tools"><input type="search" id="pq" placeholder="Cari sektor…" aria-label="Cari sektor"><button class="btn" id="pcopy" type="button">Salin tabel (CSV)</button><span class="toast" id="ptoast"></span></div>
+      </div>
+      <div class="tablebox"><table id="ptbl"><thead><tr>
+        <th data-k="i">Kode</th><th data-k="name">Sektor</th><th data-k="share">Porsi input terdampak</th><th data-k="dir">Δp langsung</th><th data-k="dp">Δp total</th><th data-k="w">Bobot konsumsi RT</th><th data-k="contrib">Sumbangan inflasi (poin persen)</th>
+      </tr></thead><tbody></tbody></table></div>
+      <p class="hint" style="margin-top:8px">Baris miring adalah sektor yang harganya dinaikkan langsung. Klik baris untuk menjadikannya sektor yang diamati.</p>
+    </section>
+
+    <section class="note">
+      <p><b>Metode.</b> Model harga Leontief: p<sub>j</sub> = Σ<sub>i</sub> a<sub>ij</sub> p<sub>i</sub> + v<sub>j</sub>. Harga sektor yang dikejutkan (K) ditetapkan dari luar; harga sektor lain (O) diselesaikan dari Δp<sub>O</sub> = θ · (I − θ·A<sub>OO</sub>′)<sup>−1</sup> · A<sub>KO</sub>′ · Δp<sub>K</sub>, dengan θ = tingkat penerusan biaya. Sumbangan inflasi = Σ w<sub>i</sub> Δp<sub>i</sub>, dengan w = pangsa sektor dalam konsumsi rumah tangga di tabel IO.</p>
+      <p><b>Batasan.</b> Nilai tambah per unit (upah, laba) dianggap tetap, tanpa substitusi input, sehingga pada θ = 100% hasilnya batas atas. Harga input impor tidak berubah dan tidak bisa dikejutkan: BBM tidak dapat disimulasikan karena Industri Pengilangan Migas (I-12) di Sultra tidak berproduksi dan seluruh BBM didatangkan dari luar provinsi. Hasil berupa harga produsen; bobot konsumsi IO berbeda dari diagram timbang IHK, jadi angka inflasi adalah perkiraan, bukan proyeksi resmi. Struktur biaya tahun 2016.</p>
+    </section>
+  </main>
+</div>
+</div>
 </div>
 
 <script>
@@ -391,4 +492,128 @@ $('copy').addEventListener('click',()=>{
 // start with an example scenario
 Object.assign(S, {fd:[1,0,0,0,0,0,0]});
 syncInputs(); run();
+
+// ===== Inflasi dorongan biaya (model harga Leontief) =====
+const WRT = (()=>{const c=D.FD.map(r=>r[0]); const t=c.reduce((a,b)=>a+b,0); return c.map(v=>v/t);})();
+const PS = { shocks:[{k:27,v:10}], theta:100, focus:39, sortK:'contrib', sortDir:-1, q:'' };
+let PR = null;
+function solveLin(M,b){
+  const n=b.length, a=M.map((r,i)=>[...r,b[i]]);
+  for(let c=0;c<n;c++){
+    let p=c; for(let r=c+1;r<n;r++) if(Math.abs(a[r][c])>Math.abs(a[p][c])) p=r;
+    [a[c],a[p]]=[a[p],a[c]];
+    const pv=a[c][c]; if(Math.abs(pv)<1e-14) continue;
+    for(let k=c;k<=n;k++) a[c][k]/=pv;
+    for(let r=0;r<n;r++){ if(r===c) continue; const f=a[r][c]; if(!f) continue; for(let k=c;k<=n;k++) a[r][k]-=f*a[c][k]; }
+  }
+  return a.map(r=>r[n]);
+}
+opts($('pSec')); opts($('pFocus')); $('pSec').value=27; $('pFocus').value=PS.focus;
+const PPRESETS=[
+  {n:'Tarif listrik +10%', s:[{k:27,v:10}]},
+  {n:'Gas dan es +10%', s:[{k:28,v:10}]},
+  {n:'Tiket pesawat +20%', s:[{k:37,v:20}]},
+  {n:'Angkutan darat +10%', s:[{k:34,v:10}]},
+  {n:'Tanaman pangan +5%', s:[{k:0,v:5}]},
+  {n:'Listrik +10% dan angkutan darat +10%', s:[{k:27,v:10},{k:34,v:10}]},
+];
+$('ppresets').innerHTML = PPRESETS.map((p,i)=>`<button type="button" class="chip" data-pp="${i}">${p.n}</button>`).join('');
+$('ppresets').addEventListener('click',e=>{const b=e.target.closest('[data-pp]'); if(!b) return; PS.shocks=structuredClone(PPRESETS[b.dataset.pp].s); runP();});
+$('pAdd').addEventListener('click',()=>{const k=+$('pSec').value, v=num($('pVal')); PS.shocks=PS.shocks.filter(s=>s.k!==k); if(v) PS.shocks.push({k,v}); runP();});
+$('pList').addEventListener('click',e=>{const b=e.target.closest('[data-rm]'); if(!b) return; PS.shocks=PS.shocks.filter(s=>s.k!==+b.dataset.rm); runP();});
+$('pList').addEventListener('input',e=>{const el=e.target.closest('[data-ed]'); if(!el) return; const s=PS.shocks.find(s=>s.k===+el.dataset.ed); if(s){ s.v=num(el); runP(false); }});
+$('pTheta').addEventListener('input',e=>{PS.theta=Math.max(0,Math.min(100,num(e.target))); runP(false);});
+$('pReset').addEventListener('click',()=>{PS.shocks=[]; runP();});
+$('pFocus').addEventListener('change',e=>{PS.focus=+e.target.value; renderP();});
+$('pq').addEventListener('input',e=>{PS.q=e.target.value.toLowerCase(); renderPTable();});
+document.querySelector('#ptbl thead').addEventListener('click',e=>{const k=e.target.dataset.k; if(!k) return; if(PS.sortK===k) PS.sortDir*=-1; else {PS.sortK=k; PS.sortDir=(k==='i'||k==='name')?1:-1;} renderPTable();});
+document.querySelector('#ptbl tbody').addEventListener('click',e=>{const tr=e.target.closest('tr'); if(!tr) return; PS.focus=+tr.dataset.i; $('pFocus').value=PS.focus; renderP();});
+$('pchart').addEventListener('click',e=>{const g=e.target.closest('g[data-i]'); if(!g) return; PS.focus=+g.dataset.i; $('pFocus').value=PS.focus; renderP();});
+
+function runP(list=true){
+  const th=PS.theta/100, dp=Array(N).fill(0), K=PS.shocks.map(s=>s.k);
+  PS.shocks.forEach(s=>dp[s.k]=s.v/100);
+  const o=[...Array(N).keys()].filter(i=>!K.includes(i));
+  const dir=Array(N).fill(0), share=Array(N).fill(0);
+  o.forEach(j=>K.forEach(k=>{ share[j]+=A[k][j]; dir[j]+=th*A[k][j]*dp[k]; }));
+  if(o.length && K.length){
+    const M=o.map(j=>o.map(i=>(i===j?1:0)-th*A[i][j]));
+    const x=solveLin(M,o.map(j=>dir[j]));
+    o.forEach((j,r)=>dp[j]=x[r]);
+  }
+  K.forEach(k=>dir[k]=dp[k]);
+  PR={ rows:D.codes.map((c,i)=>({i,code:c,name:D.names[i],shock:K.includes(i),share:share[i],dir:dir[i],dp:dp[i],w:WRT[i],contrib:WRT[i]*dp[i]})) };
+  if(list) renderPList();
+  renderP();
+}
+function renderPList(){
+  $('pList').innerHTML = PS.shocks.length ? PS.shocks.map(s=>`<div class="pitem"><span>${esc(label(s.k))}</span><span class="unit"><input type="number" step="0.5" data-ed="${s.k}" value="${s.v}" aria-label="Kenaikan harga ${D.codes[s.k]}"></span><button type="button" class="x" data-rm="${s.k}" aria-label="Hapus ${D.codes[s.k]}">×</button></div>`).join('')
+    : '<p class="hint">Belum ada sektor. Pilih sektor lalu klik Tambahkan, atau pakai salah satu preset.</p>';
+}
+const pp = v => f3.format(v*100);
+function renderP(){
+  const rows=PR.rows, infl=rows.reduce((s,r)=>s+r.contrib,0), d=rows.filter(r=>r.shock).reduce((s,r)=>s+r.contrib,0);
+  $('pInfl').textContent=pp(infl); $('pDir').textContent=pp(d); $('pInd').textContent=pp(infl-d);
+  $('pAvg').textContent=pct(rows.reduce((s,r)=>s+r.dp*D.X[r.i],0)/X0tot);
+  const r=rows[PS.focus];
+  $('pfPct').textContent=pct(r.dp);
+  $('pfNote').textContent = r.shock ? 'harga sektor ini dinaikkan langsung dalam skenario' : 'kenaikan harga produsen sektor ini';
+  $('pfShare').textContent = r.shock ? '–' : f2.format(r.share*100)+'% dari nilai output';
+  $('pfDir').textContent = r.shock ? '–' : pct(r.dir);
+  $('pfInd').textContent = r.shock ? '–' : pct(r.dp-r.dir);
+  $('pfW').textContent = f2.format(r.w*100)+'%';
+  $('pfC').textContent = pp(r.contrib)+' poin persen';
+  $('pfSrc').textContent = (r.shock || !PS.shocks.length) ? '' : `Input dari sektor yang harganya naik bernilai ${f2.format(r.share*100)}% dari output ${r.code}. Dengan penerusan biaya ${PS.theta}%, biaya langsungnya naik ${pct(r.dir)}; kenaikan harga input lain di sepanjang rantai pasok menambah ${pct(r.dp-r.dir)}.`;
+  renderPChart(); renderPTable();
+}
+function renderPChart(){
+  const rows=PR.rows.filter(r=>!r.shock && Math.abs(r.dp)>1e-12).sort((a,b)=>Math.abs(b.dp)-Math.abs(a.dp)).slice(0,15);
+  const svg=$('pchart'), W=svg.clientWidth||700;
+  $('pChartTitle').textContent = rows.length ? `${rows.length} sektor dengan kenaikan harga terbesar` : 'Belum ada kenaikan harga';
+  if(!rows.length){ svg.setAttribute('viewBox',`0 0 ${W} 60`); svg.setAttribute('height',60); svg.innerHTML='<text x="0" y="30">Tambahkan sektor yang harganya naik di panel kiri.</text>'; return; }
+  const narrow=W<560, labW=narrow?0:Math.min(260,W*0.36), valW=86, rowH=narrow?40:24, top=4, H=top+rows.length*rowH+22;
+  const vals=rows.map(r=>r.dp), mn=Math.min(0,...vals), mx=Math.max(0,...vals);
+  const x0=labW, x1=W-valW, sc=v=>x0+(v-mn)/((mx-mn)||1)*(x1-x0), zero=sc(0);
+  const span=mx-mn, step=Math.pow(10,Math.floor(Math.log10(span/4||1))); let st=step; for(const m of [1,2,5,10]) if(span/(step*m)<=5){st=step*m;break;}
+  let g='<g class="grid">';
+  for(let t=Math.ceil(mn/st)*st; t<=mx+1e-12; t+=st){ const x=sc(t); g+=`<line x1="${x}" x2="${x}" y1="${top}" y2="${H-20}"/><text x="${x}" y="${H-6}" text-anchor="middle">${f3.format(t*100).replace(/,?0+$/,'')}%</text>`; }
+  g+='</g>';
+  let bars='';
+  rows.forEach((r,n)=>{
+    const y=top+n*rowH, by=narrow?y+18:y+5, xa=Math.min(sc(r.dp),zero), w=Math.max(1,Math.abs(sc(r.dp)-zero));
+    const nm=r.code+' '+r.name, cls='bar'+(r.i===PS.focus?' hl':'')+(r.dp<0?' neg':'');
+    const lbl = narrow ? `<text x="0" y="${y+12}">${esc(nm.slice(0,60))}</text>` : `<text x="${labW-8}" y="${y+16}" text-anchor="end">${esc(nm.length>40?nm.slice(0,39)+'…':nm)}</text>`;
+    bars+=`<g data-i="${r.i}"><title>${esc(nm)}: harga ${pct(r.dp)} (langsung ${pct(r.dir)}), sumbangan inflasi ${pp(r.contrib)} poin persen</title>${lbl}<rect class="hit" x="0" y="${y}" width="${W}" height="${rowH}"/><rect class="${cls}" x="${xa}" y="${by}" width="${w}" height="14" rx="2"/><text class="val" x="${x1+6}" y="${by+11}">${pct(r.dp)}</text></g>`;
+  });
+  svg.setAttribute('viewBox',`0 0 ${W} ${H}`); svg.setAttribute('height',H);
+  svg.innerHTML = g + `<line x1="${zero}" x2="${zero}" y1="${top}" y2="${H-20}" stroke="var(--ink2)"/>` + bars;
+}
+function renderPTable(){
+  const k=PS.sortK, d=PS.sortDir;
+  const rows=PR.rows.filter(r=>!PS.q || (r.code+' '+r.name).toLowerCase().includes(PS.q))
+    .sort((a,b)=>(k==='name'? a.name.localeCompare(b.name,'id') : k==='i'? a.i-b.i : a[k]-b[k])*d);
+  document.querySelectorAll('#ptbl th').forEach(th=>{th.textContent=th.textContent.replace(/ [▲▼]$/,''); if(th.dataset.k===k) th.textContent+=d>0?' ▲':' ▼';});
+  const td=(v,f)=>`<td class="n${v<0?' neg':''}">${f(v)}</td>`;
+  document.querySelector('#ptbl tbody').innerHTML = rows.map(r=>`<tr data-i="${r.i}" class="${r.i===PS.focus?'hl':''}${r.shock?' shock':''}"><td>${r.code}</td><td>${esc(r.name)}${r.shock?' (dinaikkan langsung)':''}</td>${r.shock?'<td class="n">–</td>':td(r.share,v=>f2.format(v*100)+'%')}${td(r.dir,pct)}${td(r.dp,pct)}${td(r.w,v=>f2.format(v*100)+'%')}${td(r.contrib,pp)}</tr>`).join('');
+}
+$('pcopy').addEventListener('click',()=>{
+  const lines=[['Kode','Sektor','Dikejutkan','Porsi_input_terdampak_pct','dp_langsung_pct','dp_total_pct','Bobot_konsumsi_RT_pct','Sumbangan_inflasi_poin_persen'].join(',')]
+    .concat(PR.rows.map(r=>[r.code,'"'+r.name.replace(/"/g,'""')+'"',r.shock?'ya':'tidak',(r.share*100).toFixed(6),(r.dir*100).toFixed(6),(r.dp*100).toFixed(6),(r.w*100).toFixed(6),(r.contrib*100).toFixed(6)].join(',')));
+  navigator.clipboard.writeText(lines.join('\n')).then(()=>{$('ptoast').textContent='Tabel disalin.';},()=>{$('ptoast').textContent='Gagal menyalin; izin clipboard ditolak.';});
+  setTimeout(()=>$('ptoast').textContent='',2500);
+});
+window.addEventListener('resize',()=>PR&&renderPChart());
+
+// ===== Tab =====
+const FORMULA = { output:'ΔX = (I − A)<sup>−1</sup> · ΔF', harga:'Δp<sub>O</sub> = (I − A<sub>OO</sub>′)<sup>−1</sup> A<sub>KO</sub>′ Δp<sub>K</sub>' };
+function route(){
+  const v = location.hash==='#harga' ? 'harga' : 'output';
+  $('viewOutput').hidden = v!=='output'; $('viewHarga').hidden = v!=='harga';
+  document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-selected', b.dataset.view===v));
+  $('formula').innerHTML = FORMULA[v];
+  if(v==='output') renderChart(); else renderPChart();
+}
+document.querySelector('.tabs').addEventListener('click',e=>{const b=e.target.closest('[data-view]'); if(!b) return; try{ history.replaceState(null,'','#'+b.dataset.view); }catch(_){ location.hash=b.dataset.view; } route();});
+window.addEventListener('hashchange',route);
+runP(); route();
 </script>
